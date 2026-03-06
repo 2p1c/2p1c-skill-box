@@ -28,13 +28,13 @@ jobs:
 
           echo "🤖 目标 agents: ${AGENT_ARGS[*]}"
 
-          # 只安装 enabled: true 的 skills（修复：用进程替换避免 while 子 shell 问题）
-          while IFS= read -r skill; do
+          # 只安装 enabled: true 的 skills（使用 fd 3 读取，避免 npx 消耗 stdin 导致循环提前退出）
+          while IFS= read -r skill <&3; do
             NAME=$(echo "$skill" | jq -r '.name')
             SOURCE=$(echo "$skill" | jq -r '.source')
             echo "📦 Installing skill: $NAME from $SOURCE"
-            npx skills add "$SOURCE" --skill "$NAME" "${AGENT_ARGS[@]}" -y
-          done < <(jq -c '.skills[] | select(.enabled == true)' "$CONFIG")
+            npx skills add "$SOURCE" --skill "$NAME" "${AGENT_ARGS[@]}" -y || echo "⚠️  Skill '$NAME' 安装失败，跳过继续"
+          done 3< <(jq -c '.skills[] | select(.enabled == true)' "$CONFIG")
 
       - name: Commit installed skills
         run: |
