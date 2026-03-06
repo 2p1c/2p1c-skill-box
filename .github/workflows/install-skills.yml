@@ -1,12 +1,7 @@
 name: Install Agent Skills
 
 on:
-  workflow_dispatch:        # 手动触发（推荐）
-  push:
-    branches:
-      - main                # 只在 main 分支触发
-    paths:
-      - 'skills.config.json'  # 修改配置后自动触发
+  workflow_dispatch:        # 仅支持手动触发（本地安装后推送即可，无需 CI 重复安装）
 
 jobs:
   install-skills:
@@ -24,21 +19,22 @@ jobs:
       - name: Read config and install skills
         run: |
           CONFIG="skills.config.json"
-          AGENTS=$(jq -r '.agents[]' $CONFIG)
 
-          # 构建 agent 参数列表
-          AGENT_ARGS=""
-          for agent in $AGENTS; do
-            AGENT_ARGS="$AGENT_ARGS -a $agent"
-          done
+          # 构建 agent 参数数组（修复：使用 bash 数组避免参数被当成单个字符串）
+          AGENT_ARGS=()
+          while IFS= read -r agent; do
+            AGENT_ARGS+=("-a" "$agent")
+          done < <(jq -r '.agents[]' "$CONFIG")
 
-          # 只安装 enabled: true 的 skills，每个 skill 使用各自的 source
-          jq -c '.skills[] | select(.enabled == true)' $CONFIG | while read -r skill; do
+          echo "🤖 目标 agents: ${AGENT_ARGS[*]}"
+
+          # 只安装 enabled: true 的 skills（修复：用进程替换避免 while 子 shell 问题）
+          while IFS= read -r skill; do
             NAME=$(echo "$skill" | jq -r '.name')
             SOURCE=$(echo "$skill" | jq -r '.source')
             echo "📦 Installing skill: $NAME from $SOURCE"
-            npx skills add $SOURCE --skill "$NAME" $AGENT_ARGS -y
-          done
+            npx skills add "$SOURCE" --skill "$NAME" "${AGENT_ARGS[@]}" -y
+          done < <(jq -c '.skills[] | select(.enabled == true)' "$CONFIG")
 
       - name: Commit installed skills
         run: |
