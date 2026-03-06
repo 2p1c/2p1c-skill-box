@@ -33,9 +33,15 @@
     },
     {
       "name": "skill-creator",
-      "source": "vercel-labs/agent-skills",
+      "source": "anthropics/skills",
       "enabled": true,
       "description": "创建和优化自定义 Skill"
+    },
+    {
+      "name": "find-skills",
+      "source": "vercel-labs/agent-skills",
+      "enabled": true,
+      "description": "查找和管理已安装的 Skill"
     }
   ]
 }
