@@ -42,6 +42,12 @@
       "source": "vercel-labs/agent-skills",
       "enabled": true,
       "description": "查找和管理已安装的 Skill"
+    },
+    {
+      "name":"git-flow-branch-creator",
+      "source":"github/awesome-copilot",
+      "enabled": true,
+      "description": "创建 Git Flow 分支"
     }
   ]
 }
