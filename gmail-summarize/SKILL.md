@@ -2,12 +2,23 @@
 name: gmail-summarize
 description: Fetch recent unread Gmail (yesterday + today) and send a digest to the user.
 metadata: {
-  "nanobot": {
+  "skill": {
     "emoji": "📬",
     "requires": {
-      "config": "~/.nanobot/config.json",
-      "config_fields": ["channels.email.imapHost", "channels.email.imapPort", "channels.email.imapUsername", "channels.email.imapPassword"],
-      "external_connections": ["IMAP server specified in channels.email.imapHost"]
+      "runtime": "python3",
+      "env_vars": {
+        "required": ["IMAP_USERNAME", "IMAP_PASSWORD"],
+        "optional": ["IMAP_HOST", "IMAP_PORT", "IMAP_MAX_BODY_CHARS", "EMAIL_CONFIG_PATH"]
+      },
+      "credentials": [
+        "IMAP_USERNAME (env, required) — IMAP login username",
+        "IMAP_PASSWORD (env, required) — IMAP login password / app-password",
+        "IMAP_HOST    (env, optional, default: imap.gmail.com)",
+        "IMAP_PORT    (env, optional, default: 993)"
+      ],
+      "config": "$EMAIL_CONFIG_PATH or ~/.config/gmail-summarize/config.json (used only when IMAP_USERNAME/IMAP_PASSWORD env vars are absent)",
+      "config_fields": ["email.imapHost", "email.imapPort", "email.imapUsername", "email.imapPassword"],
+      "external_connections": ["IMAP server specified in IMAP_HOST or email.imapHost"]
     }
   }
 }
@@ -17,14 +28,39 @@ metadata: {
 
 ## Requirements
 - **Python 3** must be available in the container environment (`python` command).
-- **`~/.nanobot/config.json`** must exist and contain a valid `channels.email` block with the following fields:
-  - `imapHost`, `imapPort`, `imapUsername`, `imapPassword`
-  - If any field is missing or incorrect, the fetch script will fail with an authentication error.
-- The email channel does **not** need to be `"enabled": true` — credentials are read directly by the script regardless of channel state.
+- IMAP credentials must be supplied via **one** of the following methods (env vars take precedence):
+
+### Option A — Environment variables (recommended)
+
+| Variable | Description | Default |
+|---|---|---|
+| `IMAP_HOST` | IMAP server hostname | `imap.gmail.com` |
+| `IMAP_PORT` | IMAP server port | `993` |
+| `IMAP_USERNAME` | IMAP login username | *(required)* |
+| `IMAP_PASSWORD` | IMAP login password / app-password | *(required)* |
+| `IMAP_MAX_BODY_CHARS` | Max body characters per email | `2000` |
+
+### Option B — Config file
+
+Set `EMAIL_CONFIG_PATH` to point to a JSON file, or place the file at `~/.config/gmail-summarize/config.json`.
+The file must contain **only** the fields below (no other sensitive data should be stored in this file):
+
+```json
+{
+  "email": {
+    "imapHost": "imap.gmail.com",
+    "imapPort": 993,
+    "imapUsername": "your@gmail.com",
+    "imapPassword": "your-app-password",
+    "maxBodyChars": 2000
+  }
+}
+```
 
 ## Security notes
-- The fetch script reads the **entire** `~/.nanobot/config.json` file (which may contain other sensitive data such as API keys), but uses **only** the `channels.email` fields. No other fields are accessed or transmitted.
-- The only external connection made is to the IMAP server declared in `channels.email.imapHost`. No other endpoints are contacted.
+- **Preferred**: supply credentials via environment variables (`IMAP_HOST`, `IMAP_PORT`, `IMAP_USERNAME`, `IMAP_PASSWORD`) so no file on disk is read at all.
+- When a config file is used, it should contain **only** the `email` fields listed above. The script reads only those four fields and nothing else from the file.
+- The only external connection made is to the IMAP server declared in `IMAP_HOST` / `email.imapHost`. No other endpoints are contacted.
 - Credentials are used solely to authenticate the IMAP session and are not logged or stored elsewhere by this skill.
 
 ## When to use
@@ -34,7 +70,7 @@ metadata: {
 ## Workflow
 1. Run the fetch script via exec tool:
    `python {workspace}/skills/gmail-summarize/scripts/fetch_unseen.py`
-   (replace {workspace} with the actual workspace path, typically the nanobot source root)
+   (replace {workspace} with your actual workspace root)
 2. Parse the JSON array. Each item has: sender, subject, date, body
 3. For each email compose one line:
    `[date] sender | subject — one-sentence body summary`

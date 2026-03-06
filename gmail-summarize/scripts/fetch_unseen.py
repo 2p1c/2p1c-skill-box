@@ -13,21 +13,36 @@ from email.utils import parseaddr, parsedate_to_datetime
 from pathlib import Path
 
 # ── Config ────────────────────────────────────────────────────────────────────
-config_path_env = os.environ.get("EMAIL_CONFIG_PATH", "").strip()
-if config_path_env:
-    config_path = Path(config_path_env).expanduser()
-else:
-    default_config = Path.home() / ".config" / "gmail-summarize" / "config.json"
-    legacy_config = Path.home() / ".nanobot" / "config.json"
-    config_path = default_config if default_config.exists() else legacy_config
-cfg = json.loads(config_path.read_text())
-email_cfg = cfg.get("email") or cfg.get("channels", {}).get("email", {})
+# Priority 1: individual environment variables (no file read needed)
+_env_host     = os.environ.get("IMAP_HOST", "").strip()
+_env_port     = os.environ.get("IMAP_PORT", "").strip()
+_env_username = os.environ.get("IMAP_USERNAME", "").strip()
+_env_password = os.environ.get("IMAP_PASSWORD", "").strip()
+_env_maxchars = os.environ.get("IMAP_MAX_BODY_CHARS", "").strip()
 
-IMAP_HOST = email_cfg.get("imapHost", "imap.gmail.com")
-IMAP_PORT = int(email_cfg.get("imapPort", 993))
-USERNAME  = email_cfg.get("imapUsername", "")
-PASSWORD  = email_cfg.get("imapPassword", "")
-MAX_CHARS = min(int(email_cfg.get("maxBodyChars", 12000)), 2000)
+if _env_username and _env_password:
+    # Credentials supplied entirely via env — no config file required
+    IMAP_HOST = _env_host or "imap.gmail.com"
+    IMAP_PORT = int(_env_port) if _env_port else 993
+    USERNAME  = _env_username
+    PASSWORD  = _env_password
+    MAX_CHARS = min(int(_env_maxchars) if _env_maxchars else 2000, 2000)
+else:
+    # Priority 2: config file (EMAIL_CONFIG_PATH or default location)
+    # The config file should contain ONLY the email fields listed in SKILL.md.
+    config_path_env = os.environ.get("EMAIL_CONFIG_PATH", "").strip()
+    if config_path_env:
+        config_path = Path(config_path_env).expanduser()
+    else:
+        config_path = Path.home() / ".config" / "gmail-summarize" / "config.json"
+    cfg = json.loads(config_path.read_text())
+    email_cfg = cfg.get("email", {})
+
+    IMAP_HOST = _env_host     or email_cfg.get("imapHost", "imap.gmail.com")
+    IMAP_PORT = int(_env_port) if _env_port else int(email_cfg.get("imapPort", 993))
+    USERNAME  = _env_username or email_cfg.get("imapUsername", "")
+    PASSWORD  = _env_password or email_cfg.get("imapPassword", "")
+    MAX_CHARS = min(int(_env_maxchars) if _env_maxchars else int(email_cfg.get("maxBodyChars", 2000)), 2000)
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 IMAP_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun",

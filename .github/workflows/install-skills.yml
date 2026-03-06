@@ -1,0 +1,49 @@
+name: Install Agent Skills
+
+on:
+  workflow_dispatch:        # 手动触发（推荐）
+  push:
+    branches:
+      - main                # 只在 main 分支触发
+    paths:
+      - 'skills.config.json'  # 修改配置后自动触发
+
+jobs:
+  install-skills:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Read config and install skills
+        run: |
+          CONFIG="skills.config.json"
+          AGENTS=$(jq -r '.agents[]' $CONFIG)
+
+          # 构建 agent 参数列表
+          AGENT_ARGS=""
+          for agent in $AGENTS; do
+            AGENT_ARGS="$AGENT_ARGS -a $agent"
+          done
+
+          # 只安装 enabled: true 的 skills，每个 skill 使用各自的 source
+          jq -c '.skills[] | select(.enabled == true)' $CONFIG | while read -r skill; do
+            NAME=$(echo "$skill" | jq -r '.name')
+            SOURCE=$(echo "$skill" | jq -r '.source')
+            echo "📦 Installing skill: $NAME from $SOURCE"
+            npx skills add $SOURCE --skill "$NAME" $AGENT_ARGS -y
+          done
+
+      - name: Commit installed skills
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .claude/ .agent/ .cursor/ .github/
+          git diff --staged --quiet || git commit -m "chore: update installed agent skills"
+          git push
