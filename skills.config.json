@@ -39,15 +39,21 @@
     },
     {
       "name": "find-skills",
-      "source": "vercel-labs/agent-skills",
+      "source": "vercel-labs/skills",
       "enabled": true,
       "description": "查找和管理已安装的 Skill"
     },
     {
-      "name":"git-flow-branch-creator",
-      "source":"github/awesome-copilot",
+      "name": "git-flow-branch-creator",
+      "source": "github/awesome-copilot",
       "enabled": true,
       "description": "创建 Git Flow 分支"
+    },
+    {
+      "name": "git-commit",
+      "source": "github/awesome-copilot",
+      "enabled": true,
+      "description": "根据当前修改自动总结 git commit message 并提交"
     }
   ]
 }
